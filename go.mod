@@ -1,5 +1,7 @@
 module github.com/fullstorydev/grpcui
 
+go 1.14
+
 require (
 	github.com/fullstorydev/grpcurl v1.3.2
 	// needed for generating static assets with go generate
