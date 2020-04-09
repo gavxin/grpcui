@@ -1,4 +1,4 @@
-window.initGRPCForm = function(services, invokeURI, metadataURI, debug) {
+window.initGRPCForm = function(services, invokeURI, metadataURI, debug, fromPage="main") {
 
     var requestForm = $("#grpc-request-form");
 
@@ -34,6 +34,32 @@ window.initGRPCForm = function(services, invokeURI, metadataURI, debug) {
                     console.trace(data);
                 }
             });
+    }
+
+    var allMessageData = {}
+    function fetchAllMessageData() {
+        $.ajax(metadataURI + "?method=*")
+            .done(function(data) {
+                allMessageData = data;
+                formMessageSelected();
+            })
+            .fail(function(data, status) {
+                alert("Unexpected error: " + status);
+                if (debug) {
+                    console.trace(data);
+                }
+            });
+    }
+
+    function formMessageSelected() {
+        var message = $("#grpc-message").val();
+        allMessageData.requestType = message;
+
+        requestForm.empty();
+        // disable the invoke button until we get the schema
+        resetInvoke(false);
+
+        buildRequestForm(allMessageData);
     }
 
     function resetInvoke(enabled) {
@@ -2300,32 +2326,43 @@ window.initGRPCForm = function(services, invokeURI, metadataURI, debug) {
         }
     }
 
-    $("#grpc-request-response").tabs(
-        {
-            beforeActivate: function(e) {
-                onlyIfValid(e);
+    if (fromPage == "main") {
+        $("#grpc-request-response").tabs(
+            {
+                beforeActivate: function(e) {
+                    onlyIfValid(e);
+                }
+            });
+
+        $("#grpc-service").change(formServiceSelected);
+        $("#grpc-method").change(formMethodSelected);
+
+        $("#grpc-request-metadata-add-row").click(function() {
+            addMetadataRow();
+        });
+        $(".grpc-invoke").click(function(e) {
+            if (onlyIfValid(e)) {
+                invoke();
             }
         });
 
-    $("#grpc-service").change(formServiceSelected);
-    $("#grpc-method").change(formMethodSelected);
+        // TODO(jh): support populating the selected method and even request
+        // data and metadata from URL hash fragment (and add a way for user to
+        // get URL with hash fragment for currently selected method and data)
 
-    $("#grpc-request-metadata-add-row").click(function() {
+        // initialize methods drop-down based on selected service
+        formServiceSelected();
+
+        // add a single blank entry to request metadata table
         addMetadataRow();
-    });
-    $(".grpc-invoke").click(function(e) {
-        if (onlyIfValid(e)) {
-            invoke();
-        }
-    });
-
-    // TODO(jh): support populating the selected method and even request
-    // data and metadata from URL hash fragment (and add a way for user to
-    // get URL with hash fragment for currently selected method and data)
-
-    // initialize methods drop-down based on selected service
-    formServiceSelected();
-
-    // add a single blank entry to request metadata table
-    addMetadataRow();
+    } else if (fromPage == "json") {
+        $("#grpc-request-response").tabs(
+            {
+                beforeActivate: function(e) {
+                    onlyIfValid(e);
+                }
+            });
+        fetchAllMessageData();
+        $("#grpc-message").change(formMessageSelected);
+    }
 };

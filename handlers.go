@@ -140,6 +140,16 @@ type schema struct {
 	EnumTypes     map[string][]string   `json:"enumTypes"`
 }
 
+func GatherAllMessageNames(files []*desc.FileDescriptor) []string {
+	schema := gatherAllMessageMetadata(files)
+	result := make([]string, 0, len(schema.MessageTypes))
+	for message := range schema.MessageTypes {
+		result = append(result, message)
+	}
+	sort.Strings(result)
+	return result
+}
+
 type fieldDef struct {
 	Name        string      `json:"name"`
 	Type        fieldType   `json:"type"`

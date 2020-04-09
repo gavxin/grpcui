@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"mime"
 	"net/http"
+	"os"
 	"path"
 	"text/template"
 
@@ -73,9 +74,19 @@ func Handler(ch grpcdynamic.Channel, target string, methods []*desc.MethodDescri
 		ETag:        computeETag(indexContents),
 	}
 
+	messageNames := grpcui.GatherAllMessageNames(files)
+	jsonContents := getJsonContents("invoke", "metadata", messageNames)
+	jsonResource := &resource{
+		Data:        jsonContents,
+		ContentType: "text/html; charset=utf-8",
+		ETag:        computeETag(jsonContents),
+	}
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			indexResource.ServeHTTP(w, r)
+		} else if r.URL.Path == "/json" {
+			jsonResource.ServeHTTP(w, r)
 		} else {
 			http.NotFound(w, r)
 		}
@@ -116,6 +127,7 @@ func Handler(ch grpcdynamic.Channel, target string, methods []*desc.MethodDescri
 }
 
 var indexTemplate = template.Must(template.New("index.html").Parse(string(standalone.IndexTemplate())))
+var jsonTemplate = template.Must(template.New("json.html").Parse(string(standalone.JsonTemplate())))
 
 func getIndexContents(target string, webForm []byte) []byte {
 	data := struct {
@@ -130,6 +142,25 @@ func getIndexContents(target string, webForm []byte) []byte {
 		panic(err)
 	}
 	return indexBuf.Bytes()
+}
+
+func getJsonContents(invokeURI string, metadataURI string, messages []string) []byte {
+	data := struct {
+		Messages    []string
+		InvokeURI   string
+		MetadataURI string
+		Debug       bool
+	}{
+		Messages:    messages,
+		InvokeURI:   invokeURI,
+		MetadataURI: metadataURI,
+		Debug:       os.Getenv("GRPC_WEBFORM_DEBUG") != "",
+	}
+	var jsonBuf bytes.Buffer
+	if err := jsonTemplate.Execute(&jsonBuf, data); err != nil {
+		panic(err)
+	}
+	return jsonBuf.Bytes()
 }
 
 type resource struct {
